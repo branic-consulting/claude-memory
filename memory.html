@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swiss Animals Memory Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --swiss-red: #D52B1E;
+            --swiss-white: #FFFFFF;
+        }
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background-color: #f0f0f0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0 100 L50 0 L100 100 Z" fill="%23f8f8f8"/></svg>');
+            background-size: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            background-color: var(--swiss-white);
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            max-width: 90vw;
+        }
+        h1 {
+            color: var(--swiss-red);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .game-board {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .card {
+            width: 100px;
+            height: 100px;
+            background-color: var(--swiss-red);
+            border: 2px solid var(--swiss-white);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 0;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card:hover {
+            box-shadow: 0 0 10px rgba(213, 43, 30, 0.5);
+        }
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+        }
+        .card-front {
+            background-color: var(--swiss-red);
+        }
+        .card-back {
+            background-color: var(--swiss-white);
+            transform: rotateY(180deg);
+            font-size: 48px;
+        }
+        .swiss-cross {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            background-color: var(--swiss-red);
+        }
+        .swiss-cross::before, .swiss-cross::after {
+            content: '';
+            position: absolute;
+            background-color: var(--swiss-white);
+        }
+        .swiss-cross::before {
+            width: 30px;
+            height: 10px;
+            top: 20px;
+            left: 10px;
+        }
+        .swiss-cross::after {
+            width: 10px;
+            height: 30px;
+            top: 10px;
+            left: 20px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        button {
+            background-color: var(--swiss-red);
+            color: var(--swiss-white);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #B5241A;
+        }
+        @media (max-width: 600px) {
+            .game-board {
+                grid-template-columns: repeat(3, 1fr) !important;
+            }
+            .card {
+                width: 80px;
+                height: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="swiss-cross"></div>
+    <div class="container">
+        <h1>Swiss Animals Memory Game</h1>
+        <div class="game-info">
+            <span id="moves">Moves: 0</span>
+            <span id="timer">Time: 0s</span>
+        </div>
+        <div class="game-board"></div>
+        <div class="controls">
+            <button id="start-btn">Start Game</button>
+            <select id="difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </div>
+    </div>
+    <script>
+        const animals = ['🐮', '🐐', '🦅', '🐑', '🦊', '🦌', '🦙', '🐿️'];
+        const gameBoard = document.querySelector('.game-board');
+        const movesDisplay = document.getElementById('moves');
+        const timerDisplay = document.getElementById('timer');
+        const startBtn = document.getElementById('start-btn');
+        const difficultySelect = document.getElementById('difficulty');
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let moves = 0;
+        let timeElapsed = 0;
+        let timerInterval;
+        let gameStarted = false;
+
+        function createBoard(difficulty) {
+            gameBoard.innerHTML = '';
+            const gridSize = difficulty === 'easy' ? 12 : difficulty === 'medium' ? 16 : 20;
+            const columns = difficulty === 'easy' ? 3 : difficulty === 'medium' ? 4 : 5;
+            gameBoard.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+            
+            const shuffledAnimals = [...animals.slice(0, gridSize / 2), ...animals.slice(0, gridSize / 2)].sort(() => Math.random() - 0.5);
+            
+            shuffledAnimals.forEach((animal, index) => {
+                const card = document.createElement('div');
+                card.classList.add('card');
+                card.dataset.animal = animal;
+                card.dataset.index = index;
+                card.innerHTML = `
+                    <div class="card-front"></div>
+                    <div class="card-back">${animal}</div>
+                `;
+                card.addEventListener('click', flipCard);
+                gameBoard.appendChild(card);
+            });
+        }
+
+        function flipCard() {
+            if (!gameStarted) return;
+            if (flippedCards.length < 2 && !this.classList.contains('flipped')) {
+                this.classList.add('flipped');
+                flippedCards.push(this);
+                moves++;
+                movesDisplay.textContent = `Moves: ${moves}`;
+
+                if (flippedCards.length === 2) {
+                    setTimeout(checkMatch, 1000);
+                }
+            }
+        }
+
+        function checkMatch() {
+            const [card1, card2] = flippedCards;
+            if (card1.dataset.animal === card2.dataset.animal) {
+                matchedPairs++;
+                if (matchedPairs === gameBoard.children.length / 2) {
+                    endGame();
+                }
+            } else {
+                card1.classList.remove('flipped');
+                card2.classList.remove('flipped');
+            }
+            flippedCards = [];
+        }
+
+        function startGame() {
+            resetGame();
+            createBoard(difficultySelect.value);
+            gameStarted = true;
+            startBtn.textContent = 'Reset Game';
+            timerInterval = setInterval(() => {
+                timeElapsed++;
+                timerDisplay.textContent = `Time: ${timeElapsed}s`;
+            }, 1000);
+        }
+
+        function resetGame() {
+            clearInterval(timerInterval);
+            flippedCards = [];
+            matchedPairs = 0;
+            moves = 0;
+            timeElapsed = 0;
+            movesDisplay.textContent = 'Moves: 0';
+            timerDisplay.textContent = 'Time: 0s';
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            gameStarted = false;
+            alert(`Congratulations! You won in ${moves} moves and ${timeElapsed} seconds!`);
+            startBtn.textContent = 'Start Game';
+        }
+
+        startBtn.addEventListener('click', startGame);
+    </script>
+</body>
+</html>
